@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "seed": "node seed/seed.js",
     "clear-db": "node seed/clear.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

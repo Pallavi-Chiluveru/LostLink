@@ -12,6 +12,7 @@ const CHIP_LABELS = {
   location: 'Location', date: 'Date', timeHint: 'Time', description: 'Details'
 };
 const CATEGORIES = ['All', 'Smartphone', 'Laptop', 'Smartwatch', 'Watch', 'Earphones', 'ID Card', 'Wallet', 'Keys', 'Bag', 'Books', 'Documents', 'Accessories', 'Clothing', 'Other'];
+const INITIAL_STAGE = 'COLLECTING_DETAILS';
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams();
@@ -20,6 +21,7 @@ export default function SearchPage() {
   const [searchState, setSearchState] = useState({});
   const [unknownFields, setUnknownFields] = useState([]);
   const [questionCount, setQuestionCount] = useState(0);
+  const [stage, setStage] = useState(INITIAL_STAGE);
   const [results, setResults] = useState(null);
   const [highMatchesCount, setHighMatchesCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -46,15 +48,25 @@ export default function SearchPage() {
         searchState,
         unknownFields,
         questionCount,
+        stage,
         conversationContext: messages.slice(-7)
       });
       const data = response.data;
       setSearchState(data.searchState || {});
       setUnknownFields(data.unknownFields || []);
+      setStage(data.stage || INITIAL_STAGE);
 
-      if (data.readyToSearch) {
+      if (data.resetSearch) {
+        setResults(null);
+        setHighMatchesCount(0);
+        setQuestionCount(0);
+        setMessages([...nextMessages, {
+          role: 'assistant',
+          content: data.responseMessage || 'What item did you lose?'
+        }]);
+      } else if (data.didSearch) {
         setResults(data.results || []);
-        setHighMatchesCount(data.highMatchesCount || 0);
+        setHighMatchesCount(data.highMatchesCount ?? 0);
         setMessages([...nextMessages, {
           role: 'assistant',
           content: data.totalCount > 0
@@ -62,9 +74,11 @@ export default function SearchPage() {
             : "I couldn't find a strong match yet. Add another detail, or create a Missing Item Request so LostLink can keep watching."
         }]);
       } else {
-        const nextQuestion = data.nextQuestion || 'What other detail do you remember about the item?';
-        setQuestionCount((count) => Math.min(5, count + 1));
-        setMessages([...nextMessages, { role: 'assistant', content: nextQuestion }]);
+        const assistantMessage = data.responseMessage || data.nextQuestion || 'What other detail do you remember about the item?';
+        if (data.stage === 'COLLECTING_DETAILS' && data.nextQuestion) {
+          setQuestionCount((count) => Math.min(5, count + 1));
+        }
+        setMessages([...nextMessages, { role: 'assistant', content: assistantMessage }]);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'AI search is temporarily unavailable. Please try again or use manual search.');
@@ -81,6 +95,8 @@ export default function SearchPage() {
     });
     setUnknownFields((current) => current.filter((item) => item !== field));
     setResults(null);
+    setHighMatchesCount(0);
+    setStage(INITIAL_STAGE);
     setMessages((current) => [...current, { role: 'assistant', content: `${CHIP_LABELS[field]} removed. Tell me the correction naturally, or add another useful detail.` }]);
   };
 

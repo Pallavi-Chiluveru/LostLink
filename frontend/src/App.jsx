@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 
@@ -16,6 +16,27 @@ import ChatPage from './pages/ChatPage';
 import MyPostsPage from './pages/MyPostsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
+import ElectricBackground from './components/ElectricBackground';
+
+const getElectricVariant = (pathname) => {
+  if (pathname === '/') return 'hero';
+  if (pathname === '/login' || pathname === '/register') return 'auth';
+  if (pathname === '/dashboard') return 'dashboard';
+  if (pathname === '/messages') return 'chat';
+  if (pathname.startsWith('/items/')) return 'verification';
+  if (pathname === '/report-found' || pathname === '/create-missing') return 'form';
+  return 'content';
+};
+
+const ElectricAppShell = ({ children }) => {
+  const { pathname } = useLocation();
+  return (
+    <div className={`app-electric-shell electric-page-${getElectricVariant(pathname)}`}>
+      <ElectricBackground variant={getElectricVariant(pathname)} fixed />
+      <div className="app-electric-content">{children}</div>
+    </div>
+  );
+};
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -37,7 +58,7 @@ export default function App() {
     <AuthProvider>
       <ToastProvider>
         <Router>
-          <Routes>
+          <ElectricAppShell><Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -56,7 +77,7 @@ export default function App() {
 
             {/* Fallback Catch-All */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          </Routes></ElectricAppShell>
         </Router>
       </ToastProvider>
     </AuthProvider>

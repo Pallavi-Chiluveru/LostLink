@@ -6,7 +6,7 @@ export default function ItemCard({ item, matchScore, matchConfidence, matchReaso
   const isDelivered = item.status === 'DELIVERED';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group">
+    <div className="electric-card bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col group">
       {/* Image & Badges Container */}
       <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
         <img

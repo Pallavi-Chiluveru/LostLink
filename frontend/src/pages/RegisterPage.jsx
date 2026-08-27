@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Link2, User, Mail, Lock, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, ShieldCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import BrandLogo from '../components/BrandLogo';
 
 const ANURAG_REGEX = /^(\d{2})eg(\d{3})([a-z])(\d{2})@anurag\.edu\.in$/i;
 
@@ -60,15 +61,15 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-white">
       <Navbar />
 
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-gray-200 shadow-xl space-y-6">
+        <div className="max-w-md w-full feature-card-electric p-8 rounded-3xl space-y-6">
           <div className="text-center">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-blue-500/20">
-              <Link2 className="w-7 h-7 stroke-[2.5]" />
-            </div>
+            <Link to="/" className="inline-flex mb-3" aria-label="Go to LostLink home">
+              <BrandLogo variant="auth" />
+            </Link>
             <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Create Account</h2>
             <p className="text-xs text-gray-500 mt-1">
               Only Anurag University institutional accounts can register.
@@ -189,7 +190,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading || !isValidEmail}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2"
+              className="w-full py-3 px-4 rounded-xl gradient-cta-primary text-white font-bold text-sm electric-glow-dual flex items-center justify-center gap-2 transition-transform hover:-translate-y-0.5 disabled:opacity-50 mt-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

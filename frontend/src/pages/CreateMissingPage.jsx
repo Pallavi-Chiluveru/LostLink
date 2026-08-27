@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FileText, PlusCircle, AlertCircle, Sparkles } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -12,13 +12,15 @@ const CATEGORIES = [
 ];
 
 export default function CreateMissingPage() {
-  const [itemName, setItemName] = useState('');
-  const [category, setCategory] = useState('Smartphone');
-  const [brand, setBrand] = useState('');
-  const [color, setColor] = useState('');
-  const [description, setDescription] = useState('');
-  const [lastKnownLocation, setLastKnownLocation] = useState('');
-  const [approximateLostDate, setApproximateLostDate] = useState(new Date().toISOString().split('T')[0]);
+  const location = useLocation();
+  const aiState = location.state?.aiSearchState || {};
+  const [itemName, setItemName] = useState(aiState.itemName || aiState.category || '');
+  const [category, setCategory] = useState(CATEGORIES.includes(aiState.category) ? aiState.category : 'Smartphone');
+  const [brand, setBrand] = useState(aiState.brand || '');
+  const [color, setColor] = useState(aiState.color || '');
+  const [description, setDescription] = useState(aiState.description || location.state?.aiDescription || '');
+  const [lastKnownLocation, setLastKnownLocation] = useState(aiState.location || '');
+  const [approximateLostDate, setApproximateLostDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(aiState.date || '') ? aiState.date : new Date().toISOString().split('T')[0]);
   const [additionalPrivateDetails, setAdditionalPrivateDetails] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,11 @@ export default function CreateMissingPage() {
           <p className="text-sm text-gray-500 mt-1">
             LostLink will register your missing item request and continuously scan all current and future found posts.
           </p>
+          {Object.keys(aiState).length > 0 && (
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-xs font-bold text-blue-700">
+              <Sparkles className="w-4 h-4 text-rose-500" /> Pre-filled from your AI search — review and publish.
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-200 shadow-sm space-y-6">

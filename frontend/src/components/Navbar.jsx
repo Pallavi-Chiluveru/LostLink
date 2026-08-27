@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Link2, Search, PlusCircle, MessageSquare, Bell, User, LogOut, Package, HelpCircle, ChevronDown } from 'lucide-react';
+import { Search, PlusCircle, MessageSquare, Bell, User, LogOut, Package, HelpCircle, ChevronDown, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import BrandLogo from './BrandLogo';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -11,7 +12,10 @@ export default function Navbar() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('');
+  const visibleSections = useRef(new Map());
 
+  // Notifications logic
   useEffect(() => {
     if (isAuthenticated) {
       const fetchCounts = async () => {
@@ -33,6 +37,75 @@ export default function Navbar() {
     }
   }, [isAuthenticated, location.pathname]);
 
+  const scrollToTarget = (sectionId = '') => {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => {
+      if (!sectionId) {
+        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+        return;
+      }
+
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'start'
+      });
+    });
+  };
+
+  const navigateToSection = (sectionId) => {
+    setUserDropdownOpen(false);
+    if (location.pathname === '/') {
+      navigate({ pathname: '/', hash: `#${sectionId}` });
+      scrollToTarget(sectionId);
+    } else {
+      navigate({ pathname: '/', hash: `#${sectionId}` });
+    }
+  };
+
+  const handleLogoClick = (event) => {
+    event.preventDefault();
+    navigate('/', { replace: location.pathname === '/' });
+    setActiveSection('');
+    scrollToTarget();
+  };
+
+  // Hash navigation works both on initial load and after navigating from another route.
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+    const sectionId = location.hash.slice(1);
+    if (!['how-it-works', 'why-lostlink'].includes(sectionId)) {
+      if (!location.hash) setActiveSection('');
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => scrollToTarget(sectionId));
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.pathname, location.hash]);
+
+  // IntersectionObserver scroll-spy for landing page sections.
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      setActiveSection('');
+      return;
+    }
+
+    const sections = ['how-it-works', 'why-lostlink']
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+    visibleSections.current.clear();
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => visibleSections.current.set(entry.target.id, entry.isIntersecting));
+      const visible = sections.filter((section) => visibleSections.current.get(section.id));
+      setActiveSection(visible.length ? visible[visible.length - 1].id : '');
+    }, {
+      rootMargin: '-64px 0px -52% 0px',
+      threshold: [0, 0.05, 0.25]
+    });
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [location.pathname]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -40,23 +113,32 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
+  const SectionLink = ({ sectionId, children, compact = false }) => {
+    const active = activeSection === sectionId;
+    return (
+      <button
+        type="button"
+        onClick={() => navigateToSection(sectionId)}
+        className={`nav-section-link ${compact ? 'nav-section-link-compact' : ''} ${active ? 'nav-section-link-active' : ''}`}
+        aria-current={active ? 'location' : undefined}
+      >
+        {children}
+      </button>
+    );
+  };
+
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+    <header className="sticky top-0 z-50 navbar-glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
-          <Link to={isAuthenticated ? '/dashboard' : '/'} className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:bg-blue-700 transition-colors">
-              <Link2 className="w-6 h-6 stroke-[2.5]" />
-            </div>
-            <div>
-              <span className="text-xl font-extrabold tracking-tight text-gray-900">
-                Lost<span className="text-blue-600">Link</span>
-              </span>
-              <span className="block text-[10px] font-semibold text-gray-400 -mt-1 tracking-wider uppercase">
-                Anurag University
-              </span>
-            </div>
+          <Link
+            to="/"
+            onClick={handleLogoClick}
+            className="flex items-center shrink-0"
+            aria-label="Go to LostLink home"
+          >
+            <BrandLogo />
           </Link>
 
           {/* Navigation Links */}
@@ -97,15 +179,15 @@ export default function Navbar() {
                 <Package className="w-4 h-4" />
                 My Posts
               </Link>
+              <span className="hidden xl:flex items-center gap-1 ml-1 pl-2 border-l border-gray-200">
+                <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
+                <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
+              </span>
             </nav>
           ) : (
             <nav className="hidden md:flex items-center gap-6">
-              <a href="#how-it-works" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                How It Works
-              </a>
-              <a href="#why-lostlink" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                Why LostLink
-              </a>
+              <SectionLink sectionId="how-it-works">How It Works</SectionLink>
+              <SectionLink sectionId="why-lostlink">Why LostLink</SectionLink>
             </nav>
           )}
 
@@ -181,6 +263,10 @@ export default function Navbar() {
                         <Package className="w-4 h-4 text-gray-400" />
                         My Posts & Requests
                       </Link>
+                      <div className="hidden md:grid xl:hidden border-t border-gray-100 mt-1 pt-1 px-2 grid-cols-2 gap-1">
+                        <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
+                        <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
+                      </div>
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium text-left border-t border-gray-100 mt-1"
@@ -202,14 +288,19 @@ export default function Navbar() {
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all"
+                  className="px-4 py-2 rounded-xl text-sm font-semibold gradient-register text-white electric-glow-dual hover:-translate-y-0.5 transition-transform flex items-center gap-1 group"
                 >
                   Register
+                  <ArrowRight className="w-3.5 h-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
               </div>
             )}
           </div>
         </div>
+        <nav className="md:hidden grid grid-cols-2 gap-2 pb-2" aria-label="Landing page sections">
+          <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
+          <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
+        </nav>
       </div>
     </header>
   );

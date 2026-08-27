@@ -50,7 +50,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-white">
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -82,13 +82,6 @@ export default function DashboardPage() {
               >
                 <PlusCircle className="w-4 h-4 text-white stroke-[2.5]" />
                 📦 I Found Something
-              </Link>
-              <Link
-                to="/create-missing"
-                className="py-3 px-5 rounded-2xl bg-blue-900/40 hover:bg-blue-900/60 text-white font-bold text-sm border border-white/20 backdrop-blur transition-all flex items-center gap-2"
-              >
-                <FileText className="w-4 h-4 text-blue-200 stroke-[2.5]" />
-                + Create Missing Request
               </Link>
             </div>
           </div>
@@ -163,7 +156,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-gray-200 p-12 text-center max-w-md mx-auto">
+            <div className="feature-card-electric rounded-3xl p-12 text-center max-w-md mx-auto">
               <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <h3 className="text-base font-bold text-gray-900">No pending found items yet</h3>
               <p className="text-xs text-gray-500 mt-1 mb-4">
@@ -171,7 +164,7 @@ export default function DashboardPage() {
               </p>
               <Link
                 to="/report-found"
-                className="py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-xs inline-flex items-center gap-1.5"
+                className="py-2.5 px-4 rounded-xl gradient-cta-primary text-white font-bold text-xs inline-flex items-center gap-1.5 transition-transform hover:-translate-y-0.5 electric-glow-dual"
               >
                 <PlusCircle className="w-4 h-4" /> Report Found Item
               </Link>

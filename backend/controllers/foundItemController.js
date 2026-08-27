@@ -2,6 +2,7 @@ const FoundItem = require('../models/FoundItem');
 const MissingRequest = require('../models/MissingRequest');
 const Notification = require('../models/Notification');
 const Match = require('../models/Match');
+const ClaimRequest = require('../models/ClaimRequest');
 const ImageUploadService = require('../services/ImageUploadService');
 const MatchingService = require('../services/MatchingService');
 
@@ -249,6 +250,29 @@ exports.markDelivered = async (req, res) => {
     item.status = 'DELIVERED';
     item.deliveredAt = new Date();
     await item.save();
+
+    // Resolve active missing requests that match this item for its verified claimant(s).
+    const verifiedClaimantIds = await ClaimRequest.distinct('claimantId', {
+      foundItemId: item._id,
+      status: 'VERIFIED'
+    });
+
+    if (verifiedClaimantIds.length > 0) {
+      const matchedMissingRequestIds = await Match.distinct('missingRequestId', {
+        foundItemId: item._id
+      });
+
+      if (matchedMissingRequestIds.length > 0) {
+        await MissingRequest.updateMany(
+          {
+            _id: { $in: matchedMissingRequestIds },
+            userId: { $in: verifiedClaimantIds },
+            status: 'ACTIVE'
+          },
+          { $set: { status: 'CLOSED' } }
+        );
+      }
+    }
 
     res.json({
       message: 'Item status updated to DELIVERED!',

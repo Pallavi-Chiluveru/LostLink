@@ -21,23 +21,19 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [foundRes, missingRes] = await Promise.all([
+        const [foundRes, statsRes] = await Promise.all([
           api.get('/found-items?status=PENDING'),
-          api.get('/missing/my')
+          api.get('/dashboard/stats')
         ]);
 
         const allFound = foundRes.data || [];
         setItems(allFound);
 
-        // Fetch delivered items for stats
-        const deliveredRes = await api.get('/found-items?status=DELIVERED');
-        const deliveredItems = deliveredRes.data || [];
-
         setStats({
-          pendingItemsCount: allFound.length,
-          activeMissingCount: (missingRes.data || []).length,
-          possibleMatchesCount: 2, // Sample matches score > 80%
-          itemsReunitedCount: deliveredItems.length + 4 // Total reunited counter
+          pendingItemsCount: statsRes.data?.pendingItemsCount ?? 0,
+          activeMissingCount: statsRes.data?.activeMissingCount ?? 0,
+          possibleMatchesCount: statsRes.data?.possibleMatchesCount ?? 0,
+          itemsReunitedCount: statsRes.data?.itemsReunitedCount ?? 0
         });
       } catch (err) {
         console.error('Error loading dashboard data:', err);

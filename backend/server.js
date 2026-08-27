@@ -12,6 +12,7 @@ const claimRoutes = require('./routes/claimRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/claims', claimRoutes);
 app.use('/api/conversations', chatRoutes); // Handles /api/conversations & messages
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Global 404 Route Handler
 app.use((req, res) => {

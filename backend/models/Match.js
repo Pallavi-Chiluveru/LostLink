@@ -29,4 +29,7 @@ const matchSchema = new mongoose.Schema({
   timestamps: true
 });
 
+matchSchema.index({ missingRequestId: 1, score: -1 });
+matchSchema.index({ foundItemId: 1, missingRequestId: 1 });
+
 module.exports = mongoose.model('Match', matchSchema);

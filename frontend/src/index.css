@@ -34,7 +34,7 @@ body {
   background: #fff;
 }
 
-.app-electric-content { position: relative; z-index: 2; min-height: 100vh; }
+.app-electric-content { position: relative; z-index: 2; }
 .app-electric-content > .min-h-screen { background-color: transparent !important; }
 
 .lostlink-logo {

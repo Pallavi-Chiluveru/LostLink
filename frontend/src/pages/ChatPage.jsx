@@ -1,11 +1,61 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, CheckCircle2, MessageSquare, Package, Sparkles, AlertCircle, Lock } from 'lucide-react';
+import { Send, CheckCircle2, MessageSquare, Package, Sparkles, AlertCircle, Lock, MapPin, Map, X, MoreVertical, Flag, Ban } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+
+const CAMPUS_LOCATIONS = ['Main Gate', 'Library Entrance', 'Canteen', 'Security Desk', 'Parking Area', 'Block Entrance', 'Other Location'];
+const EMPTY_MEETING_POINT = { name: '', meetingDate: '', meetingTime: '', latitude: undefined, longitude: undefined };
+const REPORT_REASONS = [
+  ['FALSE_CLAIM', 'False claim'], ['FAKE_FOUND_RESPONSE', 'Fake found response'], ['SPAM', 'Spam'],
+  ['HARASSMENT', 'Harassment'], ['SUSPICIOUS_BEHAVIOUR', 'Suspicious behaviour'], ['OTHER', 'Other']
+];
+
+function formatMeetingSchedule(meetingPoint) {
+  const parts = [];
+  if (meetingPoint?.meetingDate) {
+    const date = new Date(`${meetingPoint.meetingDate}T00:00:00`);
+    const today = new Date();
+    parts.push(date.toDateString() === today.toDateString()
+      ? 'Today'
+      : date.toLocaleDateString([], { month: 'short', day: 'numeric', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' }));
+  }
+  if (meetingPoint?.meetingTime) {
+    const [hours, minutes] = meetingPoint.meetingTime.split(':').map(Number);
+    parts.push(new Date(2000, 0, 1, hours, minutes).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+  }
+  return parts.join(' • ');
+}
+
+function MeetingPointCard({ message, isMe, currentUser, otherUser }) {
+  const point = message.meetingPoint;
+  const schedule = formatMeetingSchedule(point);
+  const hasCoordinates = Number.isFinite(point.latitude) && Number.isFinite(point.longitude);
+  const mapsUrl = hasCoordinates
+    ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(point.latitude + ',' + point.longitude)
+    : '';
+
+  return (
+    <div className="min-w-0 sm:min-w-[240px]">
+      <div className={isMe ? 'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-100' : 'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-700'}>
+        <MapPin className="w-3.5 h-3.5" /> Meeting Point
+      </div>
+      <p className="text-sm font-extrabold mt-1 break-words">{point.name}</p>
+      {schedule && <p className={isMe ? 'mt-1 text-[11px] text-blue-100' : 'mt-1 text-[11px] text-gray-500'}>{schedule}</p>}
+      <p className={isMe ? 'mt-1 text-[10px] text-blue-100' : 'mt-1 text-[10px] text-gray-500'}>
+        Suggested by {isMe ? (currentUser?.name?.split(' ')[0] || 'You') : otherUser?.name}
+      </p>
+      {hasCoordinates && (
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className={isMe ? 'mt-2 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold bg-white/15 text-white hover:bg-white/25' : 'mt-2 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100'}>
+          <Map className="w-3.5 h-3.5" /> Open in Maps
+        </a>
+      )}
+    </div>
+  );
+}
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -18,10 +68,23 @@ export default function ChatPage() {
   const [activeConvData, setActiveConvData] = useState(null);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliverySuccess, setDeliverySuccess] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [meetingPoint, setMeetingPoint] = useState(EMPTY_MEETING_POINT);
+  const [locationError, setLocationError] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [sharingLocation, setSharingLocation] = useState(false);
+  const [showChatActions, setShowChatActions] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
 
   const messagesEndRef = useRef(null);
+  const sendingRef = useRef(false);
 
   const fetchConversations = async () => {
     try {
@@ -56,7 +119,9 @@ export default function ChatPage() {
   useEffect(() => {
     if (activeConvId) {
       fetchMessages(activeConvId);
-      const interval = setInterval(() => fetchMessages(activeConvId), 4000);
+      const interval = setInterval(() => {
+        if (!document.hidden && !sendingRef.current) fetchMessages(activeConvId);
+      }, 4000);
       return () => clearInterval(interval);
     }
   }, [activeConvId]);
@@ -67,16 +132,32 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!text.trim() || !activeConvId) return;
+    if (!text.trim() || !activeConvId || sending) return;
 
     const currentText = text.trim();
+    const optimisticId = `sending-${Date.now()}`;
     setText('');
+    setSending(true);
+    sendingRef.current = true;
+    setMessages((current) => [...current, {
+      _id: optimisticId,
+      senderId: user?._id,
+      messageType: 'TEXT',
+      text: currentText,
+      createdAt: new Date().toISOString(),
+      sending: true
+    }]);
 
     try {
       const res = await api.post(`/conversations/${activeConvId}/messages`, { text: currentText });
-      setMessages((prev) => [...prev, res.data]);
+      setMessages((current) => current.map((message) => message._id === optimisticId ? res.data : message));
     } catch (err) {
+      setMessages((current) => current.filter((message) => message._id !== optimisticId));
+      setText(currentText);
       showToast('Could not send message.', 'error');
+    } finally {
+      setSending(false);
+      sendingRef.current = false;
     }
   };
 
@@ -94,8 +175,133 @@ export default function ChatPage() {
     }
   };
 
+  const closeLocationModal = () => {
+    setShowLocationModal(false);
+    setSelectedLocation('');
+    setMeetingPoint(EMPTY_MEETING_POINT);
+    setLocationError('');
+  };
+
+  const chooseCampusLocation = (name) => {
+    setSelectedLocation(name);
+    setMeetingPoint((current) => ({
+      ...current,
+      name: name === 'Other Location' ? '' : name,
+      latitude: undefined,
+      longitude: undefined
+    }));
+    setLocationError('');
+  };
+
+  const useCurrentLocation = () => {
+    setLocationError('');
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is unavailable. You can still choose a campus meeting point.');
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setSelectedLocation('Current Location');
+        setMeetingPoint((current) => ({
+          ...current,
+          name: 'Shared Location',
+          latitude: coords.latitude,
+          longitude: coords.longitude
+        }));
+        setLocating(false);
+      },
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. You can still choose a campus meeting point.'
+          : error.code === error.TIMEOUT
+            ? 'Location request timed out. You can still choose a campus meeting point.'
+            : 'Your location could not be determined. You can still choose a campus meeting point.';
+        setLocationError(message);
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  const shareMeetingPoint = async (event) => {
+    event.preventDefault();
+    if (!activeConvId || !meetingPoint.name.trim()) {
+      setLocationError('Please choose or enter a meeting point.');
+      return;
+    }
+
+    setSharingLocation(true);
+    setLocationError('');
+    try {
+      const res = await api.post(`/conversations/${activeConvId}/messages`, {
+        messageType: 'MEETING_POINT',
+        meetingPoint
+      });
+      setMessages((current) => [...current, res.data]);
+      closeLocationModal();
+    } catch (err) {
+      setLocationError(err.response?.data?.message || 'Could not share the meeting point. Please try again.');
+    } finally {
+      setSharingLocation(false);
+    }
+  };
+
+  const confirmHandover = async (received) => {
+    try {
+      await api.post('/found-items/' + activeConvData.foundItem._id + '/handover-confirmation', { received });
+      showToast(received ? 'Item reunited successfully!' : 'The item remains pending.', received ? 'success' : 'info');
+      if (received) setDeliverySuccess(true);
+      fetchMessages(activeConvId);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update the handover.', 'error');
+    }
+  };
+
+  const toggleBlock = async () => {
+    const otherUserId = activeConvData?.otherUser?._id;
+    if (!otherUserId) return;
+    try {
+      if (activeConvData.blockStatus?.blockedByMe) await api.delete('/moderation/blocks/' + otherUserId);
+      else await api.post('/moderation/blocks/' + otherUserId);
+      setShowBlockModal(false);
+      setShowChatActions(false);
+      fetchMessages(activeConvId);
+      showToast(activeConvData.blockStatus?.blockedByMe ? 'User unblocked.' : 'User blocked.', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update block status.', 'error');
+    }
+  };
+
+  const submitReport = async (event) => {
+    event.preventDefault();
+    try {
+      await api.post('/moderation/reports', {
+        reportedUserId: activeConvData.otherUser._id,
+        targetType: 'USER',
+        targetId: activeConvData.otherUser._id,
+        reason: reportReason,
+        details: reportDetails
+      });
+      setShowReportModal(false);
+      setReportReason('');
+      setReportDetails('');
+      showToast('Report submitted safely.', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not submit the report.', 'error');
+    }
+  };
+  const handleMarkRecovered = async () => {
+    if (!activeConvData?.missingRequest?._id) return;
+    try { await api.post(`/missing/${activeConvData.missingRequest._id}/recovered`); setDeliverySuccess(true); showToast('Item recovered successfully!', 'success'); fetchMessages(activeConvId); }
+    catch (err) { showToast(err.response?.data?.message || 'Could not mark recovered.', 'error'); }
+  };
+
   const isFinder = activeConvData?.foundItem && user && (activeConvData.foundItem.postedBy === user._id || activeConvData.foundItem.postedBy?._id === user._id);
   const isDelivered = activeConvData?.foundItem?.status === 'DELIVERED';
+  const isMissingOwner = activeConvData?.missingRequest && user && (activeConvData.missingRequest.userId === user._id || activeConvData.missingRequest.userId?._id === user._id);
+  const isRecovered = activeConvData?.missingRequest?.status === 'RECOVERED';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -129,14 +335,14 @@ export default function ChatPage() {
                     }`}
                   >
                     <img
-                      src={conv.foundItem?.imageUrl}
-                      alt={conv.foundItem?.itemName}
+                      src={conv.item?.imageUrl || 'https://placehold.co/100x100?text=Item'}
+                      alt={conv.item?.itemName}
                       className="w-12 h-12 rounded-xl object-cover shrink-0 border border-gray-200"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <h4 className="text-xs font-bold text-gray-900 truncate">
-                          {conv.foundItem?.itemName}
+                          {conv.item?.itemName}
                         </h4>
                         <span className="text-[10px] text-gray-400 shrink-0">
                           {new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -163,12 +369,12 @@ export default function ChatPage() {
                 <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-xs">
                   <div className="flex items-center gap-3">
                     <img
-                      src={activeConvData.foundItem?.imageUrl}
-                      alt={activeConvData.foundItem?.itemName}
+                      src={activeConvData.item?.imageUrl || 'https://placehold.co/100x100?text=Item'}
+                      alt={activeConvData.item?.itemName}
                       className="w-10 h-10 rounded-xl object-cover border border-gray-200"
                     />
                     <div>
-                      <h3 className="text-sm font-bold text-gray-900">{activeConvData.foundItem?.itemName}</h3>
+                      <h3 className="text-sm font-bold text-gray-900">{activeConvData.item?.itemName}</h3>
                       <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Verified Chat with {activeConvData.otherUser?.name}
                       </p>
@@ -177,18 +383,18 @@ export default function ChatPage() {
 
                   {/* Finder Mark Delivered Button */}
                   <div className="flex items-center gap-2">
-                    {isDelivered ? (
+                    {isRecovered ? <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">RECOVERED</span> : isMissingOwner ? <button onClick={handleMarkRecovered} className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">I Got My Item Back</button> : isDelivered ? (
                       <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> DELIVERED
                       </span>
-                    ) : (
+                    ) : isFinder ? (
                       <button
                         onClick={() => setShowDeliveryModal(true)}
                         className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
                       >
                         <CheckCircle2 className="w-4 h-4" /> Mark Item as Delivered
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -214,13 +420,15 @@ export default function ChatPage() {
                               : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
                           }`}
                         >
-                          <p className="leading-relaxed">{msg.text}</p>
+                          {msg.messageType === 'MEETING_POINT' && msg.meetingPoint
+                            ? <MeetingPointCard message={msg} isMe={isMe} currentUser={user} otherUser={activeConvData.otherUser} />
+                            : <p className="leading-relaxed break-words">{msg.text}</p>}
                           <span
                             className={`block text-[9px] mt-1 text-right font-normal ${
                               isMe ? 'text-blue-100' : 'text-gray-400'
                             }`}
                           >
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {msg.sending ? 'Sending…' : new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       </div>
@@ -231,6 +439,15 @@ export default function ChatPage() {
 
                 {/* Message Input Form */}
                 <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationModal(true)}
+                    title="Share meeting point"
+                    aria-label="Share meeting point"
+                    className="shrink-0 p-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-xl transition-colors"
+                  >
+                    <MapPin className="w-4 h-4" />
+                  </button>
                   <input
                     type="text"
                     value={text}
@@ -240,7 +457,8 @@ export default function ChatPage() {
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-1 transition-all"
+                    disabled={sending || !text.trim()}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md flex items-center justify-center gap-1 transition-all disabled:opacity-50"
                   >
                     <Send className="w-4 h-4" />
                   </button>
@@ -255,6 +473,72 @@ export default function ChatPage() {
         </div>
       </main>
 
+      {showLocationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm fade-in" role="dialog" aria-modal="true" aria-labelledby="meeting-point-title">
+          <form onSubmit={shareMeetingPoint} className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 border border-gray-200 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 id="meeting-point-title" className="text-lg font-extrabold text-gray-900">Choose Meeting Point</h3>
+                <p className="text-xs text-gray-500 mt-1">Choose a safe place to return the item.</p>
+              </div>
+              <button type="button" onClick={closeLocationModal} aria-label="Close meeting point dialog" className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mt-5">
+              {CAMPUS_LOCATIONS.map((location) => (
+                <button
+                  key={location}
+                  type="button"
+                  onClick={() => chooseCampusLocation(location)}
+                  className={selectedLocation === location ? 'px-3 py-2.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 text-xs font-bold' : 'px-3 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50/50 text-xs font-semibold'}
+                >
+                  {location}
+                </button>
+              ))}
+            </div>
+
+            <button type="button" onClick={useCurrentLocation} disabled={locating} className="mt-3 w-full px-3 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-60">
+              <MapPin className="w-4 h-4" /> {locating ? 'Getting Your Location...' : 'Use My Current Location'}
+            </button>
+
+            {selectedLocation === 'Other Location' && (
+              <label className="block mt-4 text-xs font-bold text-gray-700">
+                Location Name
+                <input type="text" maxLength={120} value={meetingPoint.name} onChange={(event) => setMeetingPoint((current) => ({ ...current, name: event.target.value }))} placeholder="C Block Ground Floor" className="mt-1.5 w-full px-3.5 py-2.5 rounded-xl border border-gray-300 bg-gray-50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+            )}
+
+            {selectedLocation && selectedLocation !== 'Other Location' && (
+              <div className="mt-4 px-3.5 py-2.5 rounded-xl bg-blue-50 border border-blue-100 text-xs font-bold text-blue-800 flex items-center gap-2">
+                <MapPin className="w-4 h-4 shrink-0" /> {meetingPoint.name}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <label className="text-xs font-bold text-gray-700">
+                Meeting Date <span className="font-normal text-gray-400">(optional)</span>
+                <input type="date" value={meetingPoint.meetingDate} onChange={(event) => setMeetingPoint((current) => ({ ...current, meetingDate: event.target.value }))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-gray-50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+              <label className="text-xs font-bold text-gray-700">
+                Meeting Time <span className="font-normal text-gray-400">(optional)</span>
+                <input type="time" value={meetingPoint.meetingTime} onChange={(event) => setMeetingPoint((current) => ({ ...current, meetingTime: event.target.value }))} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-gray-300 bg-gray-50 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </label>
+            </div>
+
+            {locationError && <p className="mt-3 text-xs font-semibold text-red-600 flex items-start gap-1.5"><AlertCircle className="w-4 h-4 shrink-0" /> {locationError}</p>}
+
+            <div className="grid grid-cols-2 gap-3 mt-5">
+              <button type="button" onClick={closeLocationModal} className="py-2.5 rounded-xl border border-gray-300 font-bold text-xs text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button type="submit" disabled={sharingLocation || locating || !meetingPoint.name.trim()} className="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 font-bold text-xs text-white shadow-md disabled:opacity-50">
+                {sharingLocation ? 'Sharing...' : 'Share Meeting Point'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Confirmation Modal for Delivery */}
       {showDeliveryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm fade-in">
@@ -264,7 +548,7 @@ export default function ChatPage() {
             </div>
             <h3 className="text-lg font-extrabold text-gray-900">Mark Item as Delivered?</h3>
             <p className="text-xs text-gray-500 leading-relaxed font-medium">
-              Has this <strong>{activeConvData?.foundItem?.itemName}</strong> been successfully returned to its verified owner?
+              Has this <strong>{activeConvData?.item?.itemName}</strong> been successfully returned to its verified owner?
             </p>
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button

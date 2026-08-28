@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { validateAnuragEmail, parseAnuragEmail } = require('../utils/emailParser');
 const { JWT_SECRET } = require('../middleware/auth');
+const FoundItem = require('../models/FoundItem');
 
 exports.register = async (req, res) => {
   try {
@@ -112,7 +113,9 @@ exports.getMe = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User profile not found.' });
     }
-    res.json(user.toJSON());
+    const profile = user.toJSON();
+    profile.itemsReturnedCount = await FoundItem.countDocuments({ postedBy: user._id, status: 'DELIVERED' });
+    res.json(profile);
   } catch (err) {
     res.status(500).json({ message: 'Server error fetching user profile.' });
   }

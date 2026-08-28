@@ -10,6 +10,7 @@ import api from '../services/api';
 export default function DashboardPage() {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
+  const [missingItems, setMissingItems] = useState([]);
   const [stats, setStats] = useState({
     pendingItemsCount: 0,
     activeMissingCount: 0,
@@ -21,13 +22,15 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [foundRes, statsRes] = await Promise.all([
-          api.get('/found-items?status=PENDING'),
-          api.get('/dashboard/stats')
+        const [foundRes, statsRes, missingRes] = await Promise.all([
+          api.get('/found-items?status=PENDING&limit=8'),
+          api.get('/dashboard/stats'),
+          api.get('/missing?status=ACTIVE&limit=4')
         ]);
 
         const allFound = foundRes.data || [];
         setItems(allFound);
+        setMissingItems(missingRes.data || []);
 
         setStats({
           pendingItemsCount: statsRes.data?.pendingItemsCount ?? 0,
@@ -172,6 +175,11 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between"><div><h2 className="text-xl font-extrabold text-gray-900">Students Looking for These</h2><p className="text-xs text-gray-500">Recently reported missing items across Anurag University.</p></div><Link to="/missing" className="text-xs font-bold text-blue-600">View All Missing Items →</Link></div>
+          {missingItems.length===0?<div className="bg-white border rounded-3xl p-10 text-center text-gray-500 text-sm">No active missing-item reports right now.</div>:<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">{missingItems.slice(0,4).map(item=><div key={item._id} className="bg-white rounded-2xl border shadow-sm overflow-hidden">{item.imageUrl&&<img src={item.imageUrl} alt={item.itemName} className="w-full h-36 object-cover"/>}<div className="p-4"><span className="px-2 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">MISSING</span><h3 className="font-extrabold mt-2">{item.itemName}</h3><p className="text-xs text-gray-500">{item.brand} · {item.color}</p><p className="text-xs mt-2">Last seen: <b>{item.lastKnownLocation}</b></p><Link to={`/missing/${item._id}`} className="block mt-3 text-center py-2 rounded-xl bg-rose-600 text-white text-xs font-bold">I FOUND THIS</Link></div></div>)}</div>}
         </div>
       </main>
 

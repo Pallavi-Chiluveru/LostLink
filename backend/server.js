@@ -13,16 +13,28 @@ const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const moderationRoutes = require('./routes/moderationRoutes');
 
 const app = express();
 
-// Connect to MongoDB Database
-connectDB();
-
 // Middleware
+const normalizeOrigin = origin => origin?.trim().replace(/\/$/, '');
+const allowedOrigins = new Set([
+  normalizeOrigin(process.env.CLIENT_URL || 'https://lost-link-beryl.vercel.app'),
+  'http://localhost:5173'
+].filter(Boolean));
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
-  credentials: true
+  origin(origin, callback) {
+    // Requests without Origin are server-to-server, health checks, or same-origin.
+    if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -48,6 +60,7 @@ app.use('/api/conversations', chatRoutes); // Handles /api/conversations & messa
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/moderation', moderationRoutes);
 
 // Global 404 Route Handler
 app.use((req, res) => {
@@ -64,9 +77,21 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`=================================================`);
-  console.log(`🚀 LostLink Backend running on http://localhost:${PORT}`);
-  console.log(`🎓 Anurag University Lost & Found Portal`);
-  console.log(`=================================================`);
-});
+const startServer = async () => {
+  try {
+    // Do not accept API requests until the database is ready.
+    await connectDB();
+
+    app.listen(PORT, () => {
+      console.log(`=================================================`);
+      console.log(`🚀 LostLink Backend running on http://localhost:${PORT}`);
+      console.log(`🎓 Anurag University Lost & Found Portal`);
+      console.log(`=================================================`);
+    });
+  } catch (err) {
+    console.error('Backend startup failed. Check MONGO_URI and MongoDB availability.');
+    process.exit(1);
+  }
+};
+
+startServer();

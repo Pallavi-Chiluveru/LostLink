@@ -26,11 +26,13 @@ export default function NotificationsPage() {
   }, []);
 
   const handleMarkAllRead = async () => {
+    const previousNotifications = notifications;
+    setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
     try {
       await api.put('/notifications/read-all');
       showToast('All notifications marked as read.', 'success');
-      fetchNotifications();
     } catch (err) {
+      setNotifications(previousNotifications);
       showToast('Could not update notifications.', 'error');
     }
   };

@@ -16,5 +16,7 @@ router.delete('/:id', authenticateToken, foundItemController.deleteFoundItem);
 
 // Delivery status route
 router.post('/:id/delivered', authenticateToken, foundItemController.markDelivered);
+router.post('/:id/handover-confirmation', authenticateToken, foundItemController.confirmHandover);
+router.post('/:id/thank-finder', authenticateToken, foundItemController.thankFinder);
 
 module.exports = router;

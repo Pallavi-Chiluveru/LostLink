@@ -94,6 +94,25 @@ function acknowledgementResponse(message) {
     : 'Great! Review the matches below and select the item that looks like yours.';
 }
 
+function manualFallbackResponse(input, message = 'AI search is temporarily unavailable. I opened manual search and copied your description so you can keep searching.') {
+  return {
+    searchState: input.searchState,
+    unknownFields: input.unknownFields,
+    missingImportantFields: [],
+    nextQuestion: null,
+    responseMessage: message,
+    readyToSearch: false,
+    didSearch: false,
+    resetSearch: false,
+    fallbackToManual: true,
+    manualQuery: input.message,
+    stage: input.stage,
+    totalCount: 0,
+    highMatchesCount: 0,
+    results: []
+  };
+}
+
 function isMeaningfulSearch(state, questionCount) {
   const identity = Boolean(state.category || state.itemName);
   const discriminators = ['brand', 'model', 'color', 'location', 'date', 'description']
@@ -200,9 +219,7 @@ class ConversationalSearchService {
 
     const apiKey = process.env.GROQ_API_KEY?.trim();
     if (!apiKey) {
-      const error = new Error('AI search is temporarily unavailable. You can use manual search instead.');
-      error.status = 503;
-      throw error;
+      return manualFallbackResponse(input);
     }
 
     const client = new Groq({ apiKey, timeout: 15000, maxRetries: 1 });
@@ -238,17 +255,29 @@ Never request, infer, mention, or reveal ownership-verification secrets. Return 
         max_completion_tokens: 700
       });
     } catch (error) {
-      const wrapped = new Error(error?.status === 429
-        ? 'AI search is busy right now. Please wait a moment and try again.'
-        : 'AI search is temporarily unavailable. Please try again or use manual search.');
-      wrapped.status = error?.status === 429 ? 429 : 503;
-      throw wrapped;
+      console.error('AI Item Finder provider error:', {
+        status: error?.status,
+        code: error?.error?.error?.code || error?.error?.code,
+        type: error?.error?.error?.type || error?.error?.type,
+        message: error?.message,
+        providerError: error?.error?.error?.message || error?.error?.message
+      });
+      const message = error?.status === 429
+        ? 'AI search is busy right now. I opened manual search so you can continue immediately.'
+        : undefined;
+      return manualFallbackResponse(input, message);
     }
 
     let parsed;
     try {
       parsed = JSON.parse(completion.choices?.[0]?.message?.content || '');
     } catch {
+      console.error('AI Item Finder response parsing error:', {
+        model: completion?.model,
+        finishReason: completion?.choices?.[0]?.finish_reason,
+        contentPresent: Boolean(completion?.choices?.[0]?.message?.content),
+        completionTokens: completion?.usage?.completion_tokens
+      });
       const error = new Error('AI search returned an invalid response. Please try again.');
       error.status = 502;
       throw error;
@@ -350,5 +379,6 @@ module.exports._test = {
   normalizeStage,
   changedSearchFields,
   isExplicitNewSearch,
-  isSimpleAcknowledgement
+  isSimpleAcknowledgement,
+  manualFallbackResponse
 };

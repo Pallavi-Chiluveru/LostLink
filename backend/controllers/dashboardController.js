@@ -8,12 +8,12 @@ exports.getStats = async (req, res) => {
     const userId = req.user.userId;
 
     const [activeMissingRequests, pendingItemsCount, verifiedClaimItemIds] = await Promise.all([
-      MissingRequest.find({ userId, status: 'ACTIVE' }).select('_id').lean(),
+      MissingRequest.find({ userId, status: { $in: ['ACTIVE', 'MATCHED'] } }).select('_id status').lean(),
       FoundItem.countDocuments({ postedBy: userId, status: 'PENDING' }),
       ClaimRequest.distinct('foundItemId', { claimantId: userId, status: 'VERIFIED' })
     ]);
 
-    const activeMissingIds = activeMissingRequests.map(request => request._id);
+    const activeMissingIds = activeMissingRequests.filter(request => request.status === 'ACTIVE').map(request => request._id);
 
     const possibleMatchesCount = activeMissingIds.length === 0
       ? 0
@@ -24,7 +24,7 @@ exports.getStats = async (req, res) => {
 
     // A reunion involves either the finder who delivered the item or its verified claimant.
     // countDocuments counts each delivered item once even if the user has both relationships.
-    const itemsReunitedCount = await FoundItem.countDocuments({
+    const deliveredCount = await FoundItem.countDocuments({
       status: 'DELIVERED',
       $or: [
         { postedBy: userId },
@@ -32,11 +32,12 @@ exports.getStats = async (req, res) => {
       ]
     });
 
+    const recoveredCount = await MissingRequest.countDocuments({ userId, status: 'RECOVERED', matchedFoundItemId: null });
     res.json({
       pendingItemsCount,
       activeMissingCount: activeMissingIds.length,
       possibleMatchesCount,
-      itemsReunitedCount
+      itemsReunitedCount: deliveredCount + recoveredCount
     });
   } catch (err) {
     console.error('Error fetching dashboard statistics:', err);

@@ -48,18 +48,34 @@ const missingRequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  approximateLostTime: { type: String, default: '', trim: true },
+  privateVerificationDetails: { type: String, default: '', trim: true, select: false },
   additionalPrivateDetails: {
     type: String,
     default: '',
-    trim: true
+    trim: true,
+    select: false
   },
   status: {
     type: String,
-    enum: ['ACTIVE', 'MATCHED', 'CLOSED'],
+    enum: ['ACTIVE', 'MATCHED', 'RECOVERED', 'CLOSED'],
     default: 'ACTIVE'
-  }
+  },
+  matchedFoundItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'FoundItem', default: null },
+  acceptedEvidenceId: { type: mongoose.Schema.Types.ObjectId, ref: 'FoundEvidence', default: null },
+  recoveredAt: { type: Date, default: null }
 }, {
   timestamps: true
 });
+
+missingRequestSchema.index({ status: 1, createdAt: -1 });
+missingRequestSchema.index({ userId: 1, createdAt: -1 });
+
+missingRequestSchema.methods.toPublicJSON = function() {
+  const obj = this.toObject();
+  delete obj.privateVerificationDetails;
+  delete obj.additionalPrivateDetails;
+  return obj;
+};
 
 module.exports = mongoose.model('MissingRequest', missingRequestSchema);

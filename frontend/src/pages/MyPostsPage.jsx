@@ -11,21 +11,24 @@ export default function MyPostsPage() {
   const [foundItems, setFoundItems] = useState([]);
   const [missingRequests, setMissingRequests] = useState([]);
   const [claims, setClaims] = useState([]);
+  const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const { showToast } = useToast();
 
   const fetchData = async () => {
     try {
-      const [foundRes, missingRes, claimsRes] = await Promise.all([
+      const [foundRes, missingRes, claimsRes, responsesRes] = await Promise.all([
         api.get('/found-items/my'),
         api.get('/missing/my'),
-        api.get('/claims/finder-requests')
+        api.get('/claims/finder-requests'),
+        api.get('/missing/evidence/my')
       ]);
 
       setFoundItems(foundRes.data || []);
       setMissingRequests(missingRes.data || []);
       setClaims(claimsRes.data || []);
+      setResponses(responsesRes.data || []);
     } catch (err) {
       console.error('Error fetching my posts:', err);
     } finally {
@@ -124,7 +127,7 @@ export default function MyPostsPage() {
             }`}
           >
             <ShieldAlert className="w-4 h-4" />
-            Claim Requests ({claims.length})
+            Claims / Responses ({claims.length + responses.length})
           </button>
         </div>
 
@@ -185,10 +188,9 @@ export default function MyPostsPage() {
                         {req.status}
                       </span>
                     </div>
-
-                    <button onClick={() => handleDeleteMissing(req._id)} className="p-1.5 text-red-500 hover:text-red-700">
+                    <div className="flex items-center gap-2"><Link to={`/missing/${req._id}`} className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs">View / Review</Link>{!['MATCHED','RECOVERED'].includes(req.status)&&<button onClick={() => handleDeleteMissing(req._id)} className="p-1.5 text-red-500 hover:text-red-700">
                       <Trash2 className="w-4 h-4" />
-                    </button>
+                    </button>}</div>
                   </div>
                 ))}
               </div>
@@ -246,6 +248,7 @@ export default function MyPostsPage() {
                 ))}
               </div>
             )}
+            {responses.map(response => <div key={response._id} className="bg-white p-5 rounded-2xl border flex justify-between items-center"><div><p className="text-xs text-gray-500">Your finder response</p><h4 className="font-extrabold">{response.missingRequestId?.itemName || 'Missing item'}</h4><p className="text-xs text-blue-700 font-bold">{response.matchScore}% {response.confidence} MATCH</p></div><span className={`px-3 py-1 rounded-full text-xs font-bold ${response.status==='ACCEPTED'?'bg-emerald-100 text-emerald-800':response.status==='REJECTED'?'bg-red-100 text-red-700':'bg-amber-100 text-amber-800'}`}>{response.status}</span></div>)}
           </div>
         )}
       </main>

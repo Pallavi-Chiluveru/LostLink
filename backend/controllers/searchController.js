@@ -50,7 +50,7 @@ exports.searchAndMatch = async (req, res) => {
         confidence: matchCalc.confidence,
         reasons: matchCalc.reasons
       };
-    });
+    }).filter(item => item.matchScore >= 30);
 
     // Sort by match score descending
     results.sort((a, b) => b.matchScore - a.matchScore);

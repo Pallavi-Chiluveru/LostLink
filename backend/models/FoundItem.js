@@ -55,8 +55,17 @@ const foundItemSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['PENDING', 'DELIVERED'],
+    enum: ['PENDING', 'HANDOVER_PENDING', 'DELIVERED', 'CLOSED'],
     default: 'PENDING'
+  },
+  handoverClaimantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  handedOverAt: {
+    type: Date,
+    default: null
   },
   verificationQuestions: {
     type: [verificationQuestionSchema],
@@ -69,6 +78,9 @@ const foundItemSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+foundItemSchema.index({ status: 1, createdAt: -1 });
+foundItemSchema.index({ postedBy: 1, createdAt: -1 });
 
 // Sanitized public view that NEVER exposes verification answers or secret questions publicly
 foundItemSchema.methods.toPublicJSON = function() {

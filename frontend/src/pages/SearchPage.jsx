@@ -27,7 +27,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showManual, setShowManual] = useState(false);
-  const [manual, setManual] = useState({ itemName: '', category: 'All', brand: '', color: '', location: '' });
+  const [manual, setManual] = useState({ itemName: '', category: 'All', brand: '', color: '', description: '', location: '', date: '' });
 
   const chips = useMemo(() => Object.entries(searchState).filter(([, value]) => value), [searchState]);
 
@@ -55,6 +55,19 @@ export default function SearchPage() {
       setSearchState(data.searchState || {});
       setUnknownFields(data.unknownFields || []);
       setStage(data.stage || INITIAL_STAGE);
+
+      if (data.fallbackToManual) {
+        setShowManual(true);
+        setManual((current) => ({
+          ...current,
+          description: current.description || data.manualQuery || cleanMessage
+        }));
+        setMessages([...nextMessages, {
+          role: 'assistant',
+          content: data.responseMessage
+        }]);
+        return;
+      }
 
       if (data.resetSearch) {
         setResults(null);
@@ -175,11 +188,14 @@ export default function SearchPage() {
               </form>
             </div>
           ) : (
-            <form onSubmit={runManualSearch} className="p-5 sm:p-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+            <form onSubmit={runManualSearch} className="p-5 sm:p-7 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <input value={manual.itemName} onChange={(event) => setManual({ ...manual, itemName: event.target.value })} placeholder="Item or keywords" className="lg:col-span-2 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold" />
               <select value={manual.category} onChange={(event) => setManual({ ...manual, category: event.target.value })} className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold">{CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select>
               <input value={manual.brand} onChange={(event) => setManual({ ...manual, brand: event.target.value })} placeholder="Brand" className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold" />
+              <input value={manual.color} onChange={(event) => setManual({ ...manual, color: event.target.value })} placeholder="Color" className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold" />
               <input value={manual.location} onChange={(event) => setManual({ ...manual, location: event.target.value })} placeholder="Location" className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold" />
+              <input type="date" value={manual.date} onChange={(event) => setManual({ ...manual, date: event.target.value })} className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold" />
+              <input value={manual.description} onChange={(event) => setManual({ ...manual, description: event.target.value })} placeholder="Description" className="lg:col-span-3 px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold" />
               <button type="submit" disabled={loading} className="rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-2"><Search className="w-4 h-4" /> Search</button>
             </form>
           )}

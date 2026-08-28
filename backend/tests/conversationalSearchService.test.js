@@ -5,7 +5,8 @@ const ConversationalSearchService = require('../services/ConversationalSearchSer
 const {
   changedSearchFields,
   isExplicitNewSearch,
-  isSimpleAcknowledgement
+  isSimpleAcknowledgement,
+  manualFallbackResponse
 } = ConversationalSearchService._test;
 
 const completedSearch = {
@@ -58,4 +59,18 @@ test('acknowledgement detection is narrow and does not swallow refinements', () 
   assert.equal(isSimpleAcknowledgement('okay'), true);
   assert.equal(isSimpleAcknowledgement('Actually it was found near C block'), false);
   assert.equal(isSimpleAcknowledgement('Brand is Dell'), false);
+});
+
+test('AI outages fall back to manual search without an HTTP error', () => {
+  const result = manualFallbackResponse({
+    message: 'black Dell laptop near H block',
+    searchState: { category: 'Laptop' },
+    unknownFields: [],
+    stage: 'COLLECTING_DETAILS'
+  });
+
+  assert.equal(result.fallbackToManual, true);
+  assert.equal(result.manualQuery, 'black Dell laptop near H block');
+  assert.equal(result.didSearch, false);
+  assert.deepEqual(result.searchState, { category: 'Laptop' });
 });

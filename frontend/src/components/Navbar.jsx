@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, PlusCircle, MessageSquare, Bell, User, LogOut, Package, HelpCircle, ChevronDown, ArrowRight } from 'lucide-react';
+import { Search, PlusCircle, MessageSquare, Bell, User, LogOut, Package, ChevronDown, ArrowRight, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import BrandLogo from './BrandLogo';
@@ -12,6 +12,7 @@ export default function Navbar() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('');
   const visibleSections = useRef(new Map());
 
@@ -19,6 +20,7 @@ export default function Navbar() {
   useEffect(() => {
     if (isAuthenticated) {
       const fetchCounts = async () => {
+        if (document.hidden) return;
         try {
           const [notifRes, convRes] = await Promise.all([
             api.get('/notifications'),
@@ -107,11 +109,25 @@ export default function Navbar() {
   }, [location.pathname]);
 
   const handleLogout = () => {
+    setUserDropdownOpen(false);
+    setMobileMenuOpen(false);
     logout();
     navigate('/login');
   };
 
   const isActive = (path) => location.pathname === path;
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setUserDropdownOpen(false);
+  }, [location.pathname]);
+
+  const authenticatedLinks = [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/search', label: 'Find Item', icon: Search },
+    { to: '/report-found', label: 'Report Found', icon: PlusCircle },
+    { to: '/my-posts', label: 'My Posts', icon: Package }
+  ];
 
   const SectionLink = ({ sectionId, children, compact = false }) => {
     const active = activeSection === sectionId;
@@ -130,7 +146,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 navbar-glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex h-16 sm:h-[68px] items-center gap-3">
           {/* Logo */}
           <Link
             to="/"
@@ -138,51 +154,17 @@ export default function Navbar() {
             className="flex items-center shrink-0"
             aria-label="Go to LostLink home"
           >
-            <BrandLogo />
+            <BrandLogo className="!h-10 sm:!h-11 object-contain" />
           </Link>
 
           {/* Navigation Links */}
           {isAuthenticated ? (
-            <nav className="hidden md:flex items-center gap-1">
-              <Link
-                to="/dashboard"
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive('/dashboard') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/search"
-                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                  isActive('/search') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Search className="w-4 h-4" />
-                Find Item
-              </Link>
-              <Link
-                to="/report-found"
-                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                  isActive('/report-found') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <PlusCircle className="w-4 h-4" />
-                Report Found
-              </Link>
-              <Link
-                to="/my-posts"
-                className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${
-                  isActive('/my-posts') ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Package className="w-4 h-4" />
-                My Posts
-              </Link>
-              <span className="hidden xl:flex items-center gap-1 ml-1 pl-2 border-l border-gray-200">
-                <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
-                <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
-              </span>
+            <nav className="hidden lg:flex items-center gap-1 ml-3" aria-label="Primary navigation">
+              {authenticatedLinks.map(({ to, label, icon: Icon }) => (
+                <Link key={to} to={to} aria-current={isActive(to) ? 'page' : undefined} className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${isActive(to) ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}>
+                  {Icon && <Icon className="w-4 h-4" />}{label}
+                </Link>
+              ))}
             </nav>
           ) : (
             <nav className="hidden md:flex items-center gap-6">
@@ -192,13 +174,13 @@ export default function Navbar() {
           )}
 
           {/* Right Action Icons & User Dropdown */}
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
             {isAuthenticated ? (
               <>
                 {/* Messages Icon */}
                 <Link
                   to="/messages"
-                  className="relative p-2 rounded-full text-gray-600 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+                  className={`relative p-2 rounded-full transition-colors ${isActive('/messages') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'}`}
                   title="Messages"
                 >
                   <MessageSquare className="w-5 h-5" />
@@ -212,7 +194,7 @@ export default function Navbar() {
                 {/* Notifications Icon */}
                 <Link
                   to="/notifications"
-                  className="relative p-2 rounded-full text-gray-600 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+                  className={`relative p-2 rounded-full transition-colors ${isActive('/notifications') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'}`}
                   title="Notifications"
                 >
                   <Bell className="w-5 h-5" />
@@ -227,7 +209,9 @@ export default function Navbar() {
                 <div className="relative">
                   <button
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center gap-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors focus:outline-none"
+                    className={`flex items-center gap-2 p-1.5 rounded-full hover:bg-gray-100 transition-colors focus:outline-none ${isActive('/profile') ? 'bg-blue-50' : ''}`}
+                    aria-expanded={userDropdownOpen}
+                    aria-haspopup="menu"
                   >
                     <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
                       {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
@@ -235,7 +219,7 @@ export default function Navbar() {
                     <span className="hidden sm:inline-block text-sm font-semibold text-gray-700">
                       {user?.name ? user.name.split(' ')[0] : 'Student'}
                     </span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className={`hidden sm:block w-4 h-4 text-gray-400 transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
 
                   {userDropdownOpen && (
@@ -263,10 +247,6 @@ export default function Navbar() {
                         <Package className="w-4 h-4 text-gray-400" />
                         My Posts & Requests
                       </Link>
-                      <div className="hidden md:grid xl:hidden border-t border-gray-100 mt-1 pt-1 px-2 grid-cols-2 gap-1">
-                        <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
-                        <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
-                      </div>
                       <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium text-left border-t border-gray-100 mt-1"
@@ -277,6 +257,9 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
+                <button type="button" onClick={() => setMobileMenuOpen(open => !open)} className="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100" aria-label="Toggle navigation menu" aria-expanded={mobileMenuOpen}>
+                  {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                </button>
               </>
             ) : (
               <div className="flex items-center gap-3">
@@ -297,10 +280,16 @@ export default function Navbar() {
             )}
           </div>
         </div>
-        <nav className="md:hidden grid grid-cols-2 gap-2 pb-2" aria-label="Landing page sections">
-          <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
-          <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
-        </nav>
+        {isAuthenticated ? mobileMenuOpen && (
+          <nav className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-1 pb-3 border-t border-gray-100 pt-2" aria-label="Mobile primary navigation">
+            {authenticatedLinks.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={isActive(to) ? 'page' : undefined} className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 ${isActive(to) ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-700 hover:bg-slate-50'}`}>{Icon && <Icon className="w-4 h-4" />}{label}</Link>)}
+          </nav>
+        ) : (
+          <nav className="md:hidden grid grid-cols-2 gap-2 pb-2" aria-label="Landing page sections">
+            <SectionLink compact sectionId="how-it-works">How It Works</SectionLink>
+            <SectionLink compact sectionId="why-lostlink">Why LostLink</SectionLink>
+          </nav>
+        )}
       </div>
     </header>
   );

@@ -16,6 +16,8 @@ import ChatPage from './pages/ChatPage';
 import MyPostsPage from './pages/MyPostsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
+import MissingItemsPage from './pages/MissingItemsPage';
+import MissingDetailPage from './pages/MissingDetailPage';
 import ElectricBackground from './components/ElectricBackground';
 
 const getElectricVariant = (pathname) => {
@@ -69,6 +71,8 @@ export default function App() {
             <Route path="/search" element={<ProtectedRoute><SearchPage /></ProtectedRoute>} />
             <Route path="/report-found" element={<ProtectedRoute><ReportFoundPage /></ProtectedRoute>} />
             <Route path="/create-missing" element={<ProtectedRoute><CreateMissingPage /></ProtectedRoute>} />
+            <Route path="/missing" element={<ProtectedRoute><MissingItemsPage /></ProtectedRoute>} />
+            <Route path="/missing/:id" element={<ProtectedRoute><MissingDetailPage /></ProtectedRoute>} />
             <Route path="/items/:id" element={<ProtectedRoute><ItemDetailPage /></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
             <Route path="/my-posts" element={<ProtectedRoute><MyPostsPage /></ProtectedRoute>} />

@@ -38,7 +38,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['STUDENT', 'ADMIN'],
     default: 'STUDENT'
-  }
+  },
+  thankedReturnIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FoundItem'
+  }]
 }, {
   timestamps: true
 });

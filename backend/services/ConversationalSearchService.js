@@ -1,6 +1,7 @@
 const Groq = require('groq-sdk');
 const FoundItem = require('../models/FoundItem');
 const MatchingService = require('./MatchingService');
+const { ITEM_ALIASES, normalizeText, containsPhrase } = require('../utils/searchText');
 
 const SEARCH_FIELDS = ['category', 'itemName', 'brand', 'model', 'color', 'location', 'date', 'timeHint', 'description'];
 const STAGES = ['COLLECTING_DETAILS', 'SEARCHING', 'MATCHES_SHOWN', 'WAITING_FOR_ACTION'];
@@ -79,6 +80,41 @@ function changedSearchFields(previousState, nextState) {
   return SEARCH_FIELDS.filter((field) => (previous[field] || null) !== (next[field] || null));
 }
 
+const SIMPLE_ITEM_TYPES = ['smartphone', 'laptop', 'smartwatch', 'watch', 'wallet', 'keys', 'bag', 'books', 'documents', 'accessories', 'clothing'];
+
+function extractDeterministicDetails(message, previousState = {}) {
+  const normalized = normalizeText(message);
+  const extracted = {};
+  let bestAlias = null;
+
+  for (const group of ITEM_ALIASES) {
+    for (const alias of group.aliases) {
+      if (containsPhrase(normalized, alias) && (!bestAlias || normalizeText(alias).length > normalizeText(bestAlias.alias).length)) {
+        bestAlias = { alias, canonical: group.canonical };
+      }
+    }
+  }
+
+  if (bestAlias) extracted.itemName = bestAlias.canonical;
+  if (!extracted.itemName) {
+    const simpleType = SIMPLE_ITEM_TYPES.find((item) => containsPhrase(normalized, item));
+    if (simpleType) extracted.itemName = simpleType;
+  }
+
+  const correction = normalized.match(/\b(?:actually|correction|instead)\b(?: it was| it is| was| is)?(?: my| a| an| the)? (.+)$/);
+  if (correction && correction[1] && !/\b(?:block|yesterday|today|tomorrow)\b/.test(correction[1])) {
+    extracted.itemName = correction[1];
+  }
+
+  const block = normalized.match(/\b([a-z])\s+block\b/);
+  if (block) extracted.location = `${block[1].toUpperCase()} Block`;
+
+  return mergeState(previousState, extracted, []);
+}
+
+function deterministicFields(previousState, nextState) {
+  return changedSearchFields(previousState, nextState);
+}
 function isExplicitNewSearch(message) {
   return /\b(new search|start over|search (?:for )?another item|lost another item)\b/i.test(message);
 }
@@ -214,6 +250,27 @@ class ConversationalSearchService {
         totalCount: 0,
         highMatchesCount: 0,
         results: []
+      };
+    }
+
+    const deterministicState = extractDeterministicDetails(input.message, input.searchState);
+    const deterministicChanges = deterministicFields(input.searchState, deterministicState);
+    const hasDeterministicIdentity = Boolean(deterministicState.itemName || deterministicState.category);
+    if (hasDeterministicIdentity && deterministicChanges.length > 0) {
+      const results = await findMatches(deterministicState);
+      return {
+        searchState: deterministicState,
+        unknownFields: input.unknownFields.filter((field) => !deterministicState[field]),
+        missingImportantFields: [],
+        nextQuestion: null,
+        responseMessage: null,
+        readyToSearch: true,
+        didSearch: true,
+        resetSearch: false,
+        stage: 'MATCHES_SHOWN',
+        totalCount: results.length,
+        highMatchesCount: results.filter((item) => item.confidence === 'HIGH').length,
+        results
       };
     }
 
@@ -380,5 +437,7 @@ module.exports._test = {
   changedSearchFields,
   isExplicitNewSearch,
   isSimpleAcknowledgement,
-  manualFallbackResponse
+  manualFallbackResponse,
+  extractDeterministicDetails,
+  findMatches
 };

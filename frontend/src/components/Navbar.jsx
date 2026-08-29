@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, PlusCircle, MessageSquare, Bell, User, LogOut, Package, ChevronDown, ArrowRight, Menu, X } from 'lucide-react';
+import { Search, PlusCircle, MessageSquare, Bell, User, LogOut, Package, ChevronDown, ArrowRight, Home, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import BrandLogo from './BrandLogo';
@@ -123,6 +123,7 @@ export default function Navbar() {
   }, [location.pathname]);
 
   const authenticatedLinks = [
+    { to: '/', label: 'Home', icon: Home },
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/search', label: 'Find Item', icon: Search },
     { to: '/report-found', label: 'Report Found', icon: PlusCircle },
@@ -146,12 +147,12 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 navbar-glass">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 sm:h-[68px] items-center gap-3">
+        <div className="grid h-16 sm:h-[68px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
           {/* Logo */}
           <Link
             to="/"
             onClick={handleLogoClick}
-            className="flex items-center shrink-0"
+            className="col-start-1 flex items-center shrink-0 justify-self-start"
             aria-label="Go to LostLink home"
           >
             <BrandLogo className="!h-10 sm:!h-11 object-contain" />
@@ -159,7 +160,7 @@ export default function Navbar() {
 
           {/* Navigation Links */}
           {isAuthenticated ? (
-            <nav className="hidden lg:flex items-center gap-1 ml-3" aria-label="Primary navigation">
+            <nav className="col-start-2 hidden lg:flex items-center gap-1 justify-self-center" aria-label="Primary navigation">
               {authenticatedLinks.map(({ to, label, icon: Icon }) => (
                 <Link key={to} to={to} aria-current={isActive(to) ? 'page' : undefined} className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${isActive(to) ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}>
                   {Icon && <Icon className="w-4 h-4" />}{label}
@@ -167,14 +168,14 @@ export default function Navbar() {
               ))}
             </nav>
           ) : (
-            <nav className="hidden md:flex items-center gap-6">
+            <nav className="col-start-2 hidden md:flex items-center gap-6 justify-self-center">
               <SectionLink sectionId="how-it-works">How It Works</SectionLink>
               <SectionLink sectionId="why-lostlink">Why LostLink</SectionLink>
             </nav>
           )}
 
           {/* Right Action Icons & User Dropdown */}
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <div className="col-start-3 justify-self-end flex items-center gap-1 sm:gap-2">
             {isAuthenticated ? (
               <>
                 {/* Messages Icon */}

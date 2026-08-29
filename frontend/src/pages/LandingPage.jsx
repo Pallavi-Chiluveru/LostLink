@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, PlusCircle, ShieldCheck, Cpu, MessageSquare, CheckCircle2, ArrowRight, Link2, MapPin, Sparkles } from 'lucide-react';
+import { Search, PlusCircle, ShieldCheck, Cpu, MessageSquare, CheckCircle2, ArrowRight, Link2, MapPin } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
+import blackSmartwatchImage from '../assets/black-smartwatch.png';
 
 // New Decorative Components
 import ElectricBackground from '../components/ElectricBackground';
@@ -200,9 +201,7 @@ export default function LandingPage() {
 
             <div className="bg-white p-8 rounded-3xl demo-card-electric relative">
               <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold badge-glow-blue">
-                  <Sparkles className="w-6 h-6" />
-                </div>
+                <img src={blackSmartwatchImage} alt="Black smartwatch" className="w-12 h-12 rounded-2xl object-cover bg-gray-50 border border-gray-200" />
                 <div>
                   <h4 className="font-extrabold text-gray-900">Black Noise Smartwatch</h4>
                   <p className="text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-rose-500">92% HIGH MATCH</p>
@@ -211,7 +210,7 @@ export default function LandingPage() {
 
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-4 text-xs font-semibold text-emerald-900 flex items-center gap-3">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>Ownership Verified: Secret Answer matched ("Batman wallpaper")</span>
+                <span>Ownership Verified · Private answer matched</span>
               </div>
 
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-xs text-gray-600 space-y-2">

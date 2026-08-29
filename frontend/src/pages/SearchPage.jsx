@@ -164,7 +164,7 @@ export default function SearchPage() {
                     <div className={`max-w-[82%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${entry.role === 'user' ? 'bg-blue-600 text-white rounded-br-md shadow-md shadow-blue-500/10' : 'bg-white border border-blue-100 text-gray-700 rounded-bl-md shadow-sm'}`}>{entry.content}</div>
                   </div>
                 ))}
-                {loading && <div className="flex items-center gap-2.5 text-sm text-blue-700 font-semibold"><div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center animate-pulse"><Sparkles className="w-4 h-4" /></div>LostLink AI is understanding your item…</div>}
+                {loading && <div className="flex items-center gap-2.5 text-sm text-blue-700 font-semibold"><div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center animate-pulse"><Sparkles className="w-4 h-4" /></div>Searching reported items...</div>}
               </div>
 
               {chips.length > 0 && (

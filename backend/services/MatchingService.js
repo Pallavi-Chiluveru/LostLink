@@ -10,14 +10,9 @@
  * - Name/Description: 30
  */
 
-function normalizeString(str) {
-  if (!str) return '';
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s]/gi, '')
-    .replace(/\s+/g, ' ');
-}
+const { normalizeText, canonicalItemType, expandItemTerms } = require('../utils/searchText');
+
+const normalizeString = normalizeText;
 
 function extractKeywords(str) {
   const norm = normalizeString(str);
@@ -99,7 +94,7 @@ class MatchingService {
 
     // 6. Name / Description (30 pts)
     const lostText = `${lostItem.itemName || ''} ${lostItem.description || ''}`;
-    const foundText = `${foundItem.itemName || ''} ${foundItem.description || ''}`;
+    const foundText = `${foundItem.itemName || ''} ${foundItem.category || ''} ${foundItem.brand || ''} ${foundItem.color || ''} ${foundItem.description || ''} ${foundItem.locationFound || foundItem.location || ''}`;
     
     const lostKeywords = extractKeywords(lostText);
     const foundKeywords = extractKeywords(foundText);
@@ -109,12 +104,19 @@ class MatchingService {
       lostKeywords.forEach(kw => {
         if (foundKeywords.has(kw)) matches++;
       });
-      const ratio = matches / Math.min(lostKeywords.size, foundKeywords.size);
+      const ratio = matches / lostKeywords.size;
       const textScore = Math.round(ratio * 30);
       score += textScore;
       if (textScore >= 15) {
         reasons.push('Similar description');
       }
+    }
+
+    const lostItemType = canonicalItemType(lostItem.itemName || lostItem.category);
+    const foundTerms = expandItemTerms(`${foundItem.itemName || ''} ${foundItem.category || ''} ${foundItem.description || ''}`);
+    if (lostItemType && foundTerms.has(lostItemType) && score < 30) {
+      score = 30;
+      reasons.push('Matching item type');
     }
 
     // Ensure within 0-100 range

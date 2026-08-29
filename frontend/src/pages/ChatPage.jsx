@@ -9,6 +9,15 @@ import { useToast } from '../context/ToastContext';
 
 const CAMPUS_LOCATIONS = ['Main Gate', 'Library Entrance', 'Canteen', 'Security Desk', 'Parking Area', 'Block Entrance', 'Other Location'];
 const EMPTY_MEETING_POINT = { name: '', meetingDate: '', meetingTime: '', latitude: undefined, longitude: undefined };
+function entityId(value) {
+  return String(value?._id || value?.id || value || '');
+}
+
+function sameId(left, right) {
+  const leftId = entityId(left);
+  return Boolean(leftId) && leftId === entityId(right);
+}
+
 const REPORT_REASONS = [
   ['FALSE_CLAIM', 'False claim'], ['FAKE_FOUND_RESPONSE', 'Fake found response'], ['SPAM', 'Spam'],
   ['HARASSMENT', 'Harassment'], ['SUSPICIOUS_BEHAVIOUR', 'Suspicious behaviour'], ['OTHER', 'Other']
@@ -83,6 +92,7 @@ export default function ChatPage() {
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
 
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -127,7 +137,8 @@ export default function ChatPage() {
   }, [activeConvId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = async (e) => {
@@ -298,25 +309,26 @@ export default function ChatPage() {
     catch (err) { showToast(err.response?.data?.message || 'Could not mark recovered.', 'error'); }
   };
 
-  const isFinder = activeConvData?.foundItem && user && (activeConvData.foundItem.postedBy === user._id || activeConvData.foundItem.postedBy?._id === user._id);
+  const isFinder = Boolean(activeConvData?.foundItem && sameId(activeConvData.foundItem.postedBy, user));
   const isDelivered = activeConvData?.foundItem?.status === 'DELIVERED';
-  const isMissingOwner = activeConvData?.missingRequest && user && (activeConvData.missingRequest.userId === user._id || activeConvData.missingRequest.userId?._id === user._id);
+  const isHandoverPending = activeConvData?.foundItem?.status === 'HANDOVER_PENDING';
+  const isMissingOwner = Boolean(activeConvData?.missingRequest && sameId(activeConvData.missingRequest.userId, user));
   const isRecovered = activeConvData?.missingRequest?.status === 'RECOVERED';
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 min-h-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-3 min-h-[600px] h-[calc(100vh-180px)]">
           {/* Left Column: Conversations List */}
-          <div className="border-r border-gray-200 flex flex-col bg-gray-50/50">
-            <div className="p-4 border-b border-gray-200 bg-white">
+          <div className="min-h-0 overflow-hidden border-r border-gray-200 flex flex-col bg-gray-50/50">
+            <div className="shrink-0 p-4 border-b border-gray-200 bg-white">
               <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Verified Messages</h2>
               <p className="text-xs text-gray-500">Private 1-on-1 chats with verified owners/finders.</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+            <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-100">
               {loading ? (
                 <div className="p-6 text-center text-xs text-gray-400">Loading chats...</div>
               ) : conversations.length === 0 ? (
@@ -362,31 +374,31 @@ export default function ChatPage() {
           </div>
 
           {/* Right Column: Chat View */}
-          <div className="md:col-span-2 flex flex-col bg-white">
+          <div className="md:col-span-2 min-h-0 overflow-hidden flex flex-col bg-white">
             {activeConvData ? (
               <>
                 {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-xs">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={activeConvData.item?.imageUrl || 'https://placehold.co/100x100?text=Item'}
-                      alt={activeConvData.item?.itemName}
-                      className="w-10 h-10 rounded-xl object-cover border border-gray-200"
-                    />
-                    <div>
-                      <h3 className="text-sm font-bold text-gray-900">{activeConvData.item?.itemName}</h3>
-                      <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Verified Chat with {activeConvData.otherUser?.name}
+                <div className="shrink-0 p-3 sm:p-4 border-b border-gray-200 flex items-center justify-between gap-3 bg-white shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold" aria-hidden="true">
+                      {activeConvData.otherUser?.name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-gray-900 truncate">{activeConvData.otherUser?.name || 'Student'}</h3>
+                      <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1 truncate">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Verified Return Chat - {activeConvData.item?.itemName}
                       </p>
                     </div>
                   </div>
 
                   {/* Finder Mark Delivered Button */}
-                  <div className="flex items-center gap-2">
+                  <div className="shrink-0 flex items-center gap-2">
                     {isRecovered ? <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">RECOVERED</span> : isMissingOwner ? <button onClick={handleMarkRecovered} className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">I Got My Item Back</button> : isDelivered ? (
                       <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> DELIVERED
                       </span>
+                    ) : isHandoverPending && isFinder ? (
+                      <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">Awaiting Confirmation</span>
                     ) : isFinder ? (
                       <button
                         onClick={() => setShowDeliveryModal(true)}
@@ -399,7 +411,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Messages Body */}
-                <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-50/50">
+                <div ref={messagesContainerRef} className="flex-1 min-h-0 p-4 overflow-y-auto overscroll-contain space-y-3 bg-gray-50/50">
                   <div className="text-center py-2">
                     <span className="px-3 py-1 bg-gray-200/80 text-gray-600 rounded-full text-[10px] font-bold uppercase tracking-wider">
                       🔒 End-to-End Verified LostLink Chat
@@ -407,7 +419,7 @@ export default function ChatPage() {
                   </div>
 
                   {messages.map((msg) => {
-                    const isMe = msg.senderId === user?._id;
+                    const isMe = sameId(msg.senderId, user);
                     return (
                       <div
                         key={msg._id}
@@ -438,7 +450,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Message Input Form */}
-                <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white flex gap-2">
+                <form onSubmit={handleSendMessage} className="shrink-0 p-4 border-t border-gray-200 bg-white flex gap-2">
                   <button
                     type="button"
                     onClick={() => setShowLocationModal(true)}

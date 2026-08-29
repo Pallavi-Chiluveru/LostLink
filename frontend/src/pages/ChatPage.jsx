@@ -79,6 +79,8 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [deliverySuccess, setDeliverySuccess] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
@@ -260,13 +262,18 @@ export default function ChatPage() {
   };
 
   const confirmHandover = async (received) => {
+    if (confirmingReceipt || !activeConvData?.foundItem?._id) return;
+    setConfirmingReceipt(true);
     try {
       await api.post('/found-items/' + activeConvData.foundItem._id + '/handover-confirmation', { received });
       showToast(received ? 'Item reunited successfully!' : 'The item remains pending.', received ? 'success' : 'info');
+      setShowReceiptModal(false);
       if (received) setDeliverySuccess(true);
-      fetchMessages(activeConvId);
+      await fetchMessages(activeConvId);
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not update the handover.', 'error');
+    } finally {
+      setConfirmingReceipt(false);
     }
   };
 
@@ -312,6 +319,9 @@ export default function ChatPage() {
   const isFinder = Boolean(activeConvData?.foundItem && sameId(activeConvData.foundItem.postedBy, user));
   const isDelivered = activeConvData?.foundItem?.status === 'DELIVERED';
   const isHandoverPending = activeConvData?.foundItem?.status === 'HANDOVER_PENDING';
+  const isHandoverClaimant = Boolean(
+    isHandoverPending && sameId(activeConvData?.foundItem?.handoverClaimantId, user)
+  );
   const isMissingOwner = Boolean(activeConvData?.missingRequest && sameId(activeConvData.missingRequest.userId, user));
   const isRecovered = activeConvData?.missingRequest?.status === 'RECOVERED';
 
@@ -399,6 +409,13 @@ export default function ChatPage() {
                       </span>
                     ) : isHandoverPending && isFinder ? (
                       <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">Awaiting Confirmation</span>
+                    ) : isHandoverClaimant ? (
+                      <button
+                        onClick={() => setShowReceiptModal(true)}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> Confirm Item Received
+                      </button>
                     ) : isFinder ? (
                       <button
                         onClick={() => setShowDeliveryModal(true)}
@@ -582,6 +599,38 @@ export default function ChatPage() {
         </div>
       )}
 
+      {/* Verified claimant confirmation for a finder-initiated handover */}
+      {showReceiptModal && isHandoverClaimant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm fade-in" role="dialog" aria-modal="true" aria-labelledby="receipt-confirmation-title">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 border border-gray-200 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-7 h-7" />
+            </div>
+            <h3 id="receipt-confirmation-title" className="text-lg font-extrabold text-gray-900">Confirm item received?</h3>
+            <p className="text-xs text-gray-500 leading-relaxed font-medium">
+              Please confirm only after the item has actually been returned to you.
+            </p>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                disabled={confirmingReceipt}
+                onClick={() => setShowReceiptModal(false)}
+                className="py-2.5 rounded-xl border border-gray-300 font-bold text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={confirmingReceipt}
+                onClick={() => confirmHandover(true)}
+                className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 font-bold text-xs text-white shadow-md disabled:opacity-50"
+              >
+                {confirmingReceipt ? 'Confirming...' : 'Yes, I Received It'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* ITEM REUNITED Success Modal */}
       {deliverySuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70 backdrop-blur-md fade-in">

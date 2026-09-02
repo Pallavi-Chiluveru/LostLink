@@ -1,4 +1,7 @@
 const ITEM_ALIASES = [
+  { canonical: 'pen', aliases: ['pen'] },
+  { canonical: 'pencil', aliases: ['pencil'] },
+  { canonical: 'pouch', aliases: ['pouch'] },
   { canonical: 'id card', aliases: ['student id card', 'student id', 'college id card', 'college id', 'identity card', 'id card'] },
   { canonical: 'wireless earbuds', aliases: ['wireless earbuds', 'earbuds', 'earphones'] },
   { canonical: 'laptop charger', aliases: ['laptop charger', 'charger'] },

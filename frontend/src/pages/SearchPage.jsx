@@ -31,6 +31,24 @@ export default function SearchPage() {
 
   const chips = useMemo(() => Object.entries(searchState).filter(([, value]) => value), [searchState]);
 
+  const copyAiStateToManual = (state = searchState, description = '') => {
+    setManual((current) => ({
+      ...current,
+      itemName: state.itemName || current.itemName,
+      category: CATEGORIES.includes(state.category) ? state.category : current.category,
+      brand: state.brand || current.brand,
+      color: state.color || current.color,
+      description: state.description || description || current.description,
+      location: state.location || current.location,
+      date: /^\d{4}-/.test(state.date || '') ? state.date : current.date
+    }));
+  };
+
+  const openManualSearch = () => {
+    copyAiStateToManual();
+    setShowManual(true);
+  };
+
   const submitMessage = async (event) => {
     event.preventDefault();
     const cleanMessage = message.trim();
@@ -58,10 +76,7 @@ export default function SearchPage() {
 
       if (data.fallbackToManual) {
         setShowManual(true);
-        setManual((current) => ({
-          ...current,
-          description: current.description || data.manualQuery || cleanMessage
-        }));
+        copyAiStateToManual(data.searchState || searchState, data.manualQuery || cleanMessage);
         setMessages([...nextMessages, {
           role: 'assistant',
           content: data.responseMessage
@@ -83,8 +98,8 @@ export default function SearchPage() {
         setMessages([...nextMessages, {
           role: 'assistant',
           content: data.totalCount > 0
-            ? `I found ${data.totalCount} possible match${data.totalCount === 1 ? '' : 'es'}, ranked by similarity.`
-            : "I couldn't find a strong match yet. Add another detail, or create a Missing Item Request so LostLink can keep watching."
+            ? `Good news! I found ${data.totalCount === 1 ? 'a possible match' : `${data.totalCount} possible matches`} for your ${data.searchState?.itemName || 'item'}.`
+            : `I couldn't find any reported ${data.searchState?.itemName || 'item'} matching your search right now. You can create a Missing Request so other students can see what you're looking for.`
         }]);
       } else {
         const assistantMessage = data.responseMessage || data.nextQuestion || 'What other detail do you remember about the item?';
@@ -150,7 +165,7 @@ export default function SearchPage() {
                 <p className="text-xs sm:text-sm text-gray-500">Tell me what you remember. I’ll handle the filters.</p>
               </div>
             </div>
-            <button type="button" onClick={() => setShowManual((value) => !value)} className="px-4 py-2 rounded-xl border border-blue-200 bg-white text-blue-700 text-xs font-bold flex items-center justify-center gap-2 hover:bg-blue-50 transition-colors">
+            <button type="button" onClick={() => showManual ? setShowManual(false) : openManualSearch()} className="px-4 py-2 rounded-xl border border-blue-200 bg-white text-blue-700 text-xs font-bold flex items-center justify-center gap-2 hover:bg-blue-50 transition-colors">
               <SlidersHorizontal className="w-4 h-4" /> {showManual ? 'Hide manual search' : 'Use manual search'}
             </button>
           </header>
@@ -219,6 +234,7 @@ export default function SearchPage() {
                 <h3 className="font-extrabold text-gray-900">LostLink can keep watching</h3>
                 <p className="text-sm text-gray-500 mt-1 mb-5">Add another detail in the conversation, or create a pre-filled Missing Item Request for future matches.</p>
                 <Link to="/create-missing" state={missingRequestState} className="gradient-cta-primary text-white px-5 py-3 rounded-2xl text-xs font-bold inline-flex items-center gap-2"><FileText className="w-4 h-4" /> Create Pre-filled Request</Link>
+                <button type="button" onClick={openManualSearch} className="mt-3 mx-auto block text-xs font-bold text-blue-700 hover:text-blue-900">Use Manual Search</button>
               </div>
             )}
           </section>

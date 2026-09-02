@@ -125,3 +125,58 @@ test('simple item input searches PENDING Found Items without Groq', async () => 
     else process.env.GROQ_API_KEY = originalApiKey;
   }
 });
+
+test('pen is extracted and a completed empty search does not restart the conversation', async () => {
+  const FoundItem = require('../models/FoundItem');
+  const originalFind = FoundItem.find;
+  const originalApiKey = process.env.GROQ_API_KEY;
+  delete process.env.GROQ_API_KEY;
+  FoundItem.find = (filter) => {
+    assert.deepEqual(filter, { status: 'PENDING' });
+    return { populate: async () => [] };
+  };
+
+  try {
+    const result = await ConversationalSearchService.process({ message: 'pen' });
+    assert.equal(result.searchState.itemName, 'pen');
+    assert.equal(result.didSearch, true);
+    assert.equal(result.resetSearch, false);
+    assert.equal(result.totalCount, 0);
+    assert.equal(result.nextQuestion, null);
+  } finally {
+    FoundItem.find = originalFind;
+    if (originalApiKey === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = originalApiKey;
+  }
+});
+
+test('deterministic extraction captures color, brand, and block location for a pen', () => {
+  const { extractDeterministicDetails } = ConversationalSearchService._test;
+  assert.deepEqual(extractDeterministicDetails('blue pen', {}), { itemName: 'pen', color: 'blue' });
+  assert.deepEqual(extractDeterministicDetails('I lost a black pen near B Block', {}), {
+    itemName: 'pen', color: 'black', location: 'B Block'
+  });
+  assert.deepEqual(extractDeterministicDetails('I lost a blue Reynolds pen near B Block', {}), {
+    itemName: 'pen', brand: 'reynolds', color: 'blue', location: 'B Block'
+  });
+});
+
+test('pen search returns a real matching pending item', async () => {
+  const FoundItem = require('../models/FoundItem');
+  const originalFind = FoundItem.find;
+  const pen = {
+    itemName: 'Ballpoint Pen', category: 'Other', brand: 'Reynolds', color: 'Blue',
+    description: 'Blue pen', locationFound: 'B Block', status: 'PENDING', postedBy: null,
+    toPublicJSON() { return { _id: 'pen-1', itemName: this.itemName, category: this.category, brand: this.brand, color: this.color, description: this.description, locationFound: this.locationFound, status: this.status }; }
+  };
+  FoundItem.find = () => ({ populate: async () => [pen] });
+
+  try {
+    const result = await ConversationalSearchService.process({ message: 'pen' });
+    assert.equal(result.totalCount, 1);
+    assert.equal(result.results[0]._id, 'pen-1');
+    assert.ok(result.results[0].matchScore >= 20);
+  } finally {
+    FoundItem.find = originalFind;
+  }
+});

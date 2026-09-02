@@ -81,6 +81,8 @@ function changedSearchFields(previousState, nextState) {
 }
 
 const SIMPLE_ITEM_TYPES = ['smartphone', 'laptop', 'smartwatch', 'watch', 'wallet', 'keys', 'bag', 'books', 'documents', 'accessories', 'clothing'];
+const COLORS = ['black', 'blue', 'brown', 'gold', 'gray', 'green', 'grey', 'orange', 'pink', 'purple', 'red', 'silver', 'white', 'yellow'];
+const KNOWN_BRANDS = ['reynolds'];
 
 function extractDeterministicDetails(message, previousState = {}) {
   const normalized = normalizeText(message);
@@ -108,6 +110,12 @@ function extractDeterministicDetails(message, previousState = {}) {
 
   const block = normalized.match(/\b([a-z])\s+block\b/);
   if (block) extracted.location = `${block[1].toUpperCase()} Block`;
+
+  const color = COLORS.find((value) => containsPhrase(normalized, value));
+  if (color) extracted.color = color;
+
+  const brand = KNOWN_BRANDS.find((value) => containsPhrase(normalized, value));
+  if (brand) extracted.brand = brand;
 
   return mergeState(previousState, extracted, []);
 }
@@ -162,8 +170,14 @@ function discriminatorCount(state) {
 }
 
 async function findMatches(state) {
-  const foundItems = await FoundItem.find({ status: 'PENDING' })
-    .populate('postedBy', 'name batchYear departmentCode section');
+  let foundItems;
+  try {
+    foundItems = await FoundItem.find({ status: 'PENDING' })
+      .populate('postedBy', 'name batchYear departmentCode section');
+  } catch (error) {
+    error.isSearchDatabaseError = true;
+    throw error;
+  }
 
   const description = [state.model, state.timeHint, state.description].filter(Boolean).join(' ');
   const criteria = {

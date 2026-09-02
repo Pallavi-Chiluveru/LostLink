@@ -22,8 +22,10 @@ exports.searchAssistant = async (req, res) => {
     res.json(result);
   } catch (err) {
     if (!err.status || err.status >= 500) console.error('AI search assistant error:', err.message);
-    res.status(err.status || 500).json({
-      message: err.message || 'AI search is temporarily unavailable. Please try again.'
+    res.status(err.isSearchDatabaseError ? 503 : (err.status || 500)).json({
+      message: err.isSearchDatabaseError
+        ? 'Search could not be completed right now. Please try again or use manual search.'
+        : (err.message || 'AI search is temporarily unavailable. Please try again.')
     });
   }
 };
